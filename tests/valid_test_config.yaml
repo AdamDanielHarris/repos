@@ -1,0 +1,11 @@
+config:
+  email: "test@example.com"
+  name: "TestUser"
+  branch: "main"
+
+repos:
+  test-repo:
+    local: $HOME/git/test-repo
+    remotes:
+      - https://github.com/testuser/test-repo.git
+      - https://github.com/testuser/test-repo-backup.git

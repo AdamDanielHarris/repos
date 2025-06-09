@@ -1,0 +1,214 @@
+# Basic YAML Parser
+BasicYamlParse(){
+    grep $1 $2 | awk 'BEGIN {RS=""}{gsub(/: +/,"=\"",$0); print $0"\""}'
+}
+
+
+# Get and export Essential Variables using basic YAML Parser
+GetVars(){
+
+    # Create config_sub.yaml with environmental variables substituted
+    envsubst < config.yaml > config_sub.yaml
+
+    # Get and export Essential Variables using basic YAML Parser
+    for Var in "${vars_to_get[@]}"; do
+        echo $Var
+        eval $(BasicYamlParse ^${Var} config_sub.yaml)
+        export "${Var}"
+    done
+
+}
+
+check_github_repo_exists(){
+    gh repo view $remote &> /dev/null
+}
+
+
+
+YamlLookup(){
+
+    # Create config_sub.yaml with environmental variables substituted
+    envsubst < config.yaml > config_sub.yaml
+
+    # Get and export all variables using advanced YAML parser
+    python3 yaml_lookup.py config_sub.yaml $1 || { echo "Failed to lookup $1 in config.yaml"; exit 1; }
+
+}
+
+
+# Make Function to colour text a specific colour
+ColourText(){
+    
+    # Get user input colour as arg 1
+    colour=$1
+
+    # Convert colour to colour code
+    case $colour in
+        red)
+            colour_code=31
+            ;;
+        green)
+            colour_code=32
+            ;;
+        yellow)
+            colour_code=33
+            ;;
+        blue)
+            colour_code=34
+            ;;
+        purple)
+            colour_code=35
+            ;;
+        cyan)
+            colour_code=36
+            ;;
+        white)
+            colour_code=37
+            ;;
+        *)
+            echo "Colour not recognised"
+            exit 1
+            ;;
+    esac
+
+    # Get text to colour as arg 2 onwards
+    text=${@:2}
+
+    # Echo coloured text
+    # echo -e "\e[${colour_code}m${text}\e[0m"
+    printf "\e[${colour_code}m${text}\e[0m"
+
+}
+    
+# Match arguments against repos in the dirs section of config.yaml
+MatchRepo(){
+
+    # Get second argument onwards
+    local dirs=(${@:2})
+
+    for dir in ${dirs[@]}; do
+        if [[ $dir =~ $1 ]]; then
+            echo $dir
+        fi
+    done
+}
+
+
+# Function to match a pattern given to the currently set bash variables
+function list_matching_variables() {
+    compgen -v | grep $1
+}
+
+
+# Check status of last command
+CheckStatus(){
+    # If git push was successful echo output in green
+    if [ $? -eq 0 ]; then
+        ColourText green "$1"
+    else
+        ColourText red "$1"
+    fi
+}
+
+
+
+Install_Python(){
+    echo "Warning: Python3 modules not found, trying to install them"
+    echo "$@"
+    echo
+    temp_dir=$(mktemp -d -t temppython-XXXXX)
+    pushd $temp_dir > /dev/null
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip3 install --upgrade pip
+    pip3 install $@
+    popd > /dev/null
+}
+
+
+# Install python3 yaml module if not installed
+GetPython3WithPipPackages(){
+
+    # Define mapping between pip package names and their import names
+    # This handles cases where package name differs from import name
+    declare -A pip_packages
+    pip_packages["pyyaml"]="yaml"
+
+    # If a temp directory already exists called temppython-* then activate the virtual environment
+    # If there are multiple temp directories take the one with the most recent modification time
+
+    # If TMPDIR is not set then set it to /tmp
+    if [ -z $TMPDIR ]; then
+        TMPDIR=/tmp
+    fi
+    
+    # Find all directories in TMPDIR that start with temppython*
+    temppython_dirs=$(find "$TMPDIR" -maxdepth 1 -type d -iname temppython*)
+
+    # If there are any temppython directories then activate the virtual environment
+    if [ -n "${temppython_dirs}" ]; then
+
+        # Get the most recent temppython directory and activate the virtual environment
+        temp_dir=$(ls -t -d ${temppython_dirs} | head -n 1)
+        source $temp_dir/.venv/bin/activate
+        
+        # Silently upgrade pip in the virtual environment
+        pip3 install --upgrade pip > /dev/null 2>&1 || { echo "Failed to upgrade pip"; exit 1; }
+
+        # Check if the python3 modules are installed
+        for module in $@; do
+            # Lookup the import name
+            import_name=${pip_packages[$module]:-$module}
+
+            if python3 -c "import $import_name" > /dev/null 2>&1; then
+                echo "✓ $module (imports as '$import_name') is installed"
+            else
+                echo "✗ $module (imports as '$import_name') is not installed"
+                echo "Trying to install $module"
+                if ! pip3 install $module; then
+                    echo "Failed to install $module, falling back to Install_Python"
+                    Install_Python $@
+                    break
+                else
+                    echo "✓ $module installed successfully"
+                fi
+            fi
+        done
+    fi
+
+    if [ -z "${temppython_dirs}" ]; then
+
+        Install_Python $@
+
+    fi
+}
+
+# Ensure Python3 and PyYAML are available
+EnsurePython3WithYaml(){
+    # Check that yaml module is installed in python3
+    if ! python3 -c "import yaml" 2>/dev/null; then
+        echo "PyYAML not found in active Python environment"
+        GetPython3WithPipPackages pyyaml
+    fi
+}
+
+GitCommit(){
+
+    # If GCM is set then set CommitMessage to GCM
+    if [ -n "$GCM" ]; then
+        CommitMessage=$GCM
+    else
+        CommitMessage="backup-$(date +%Y-%m-%d)"
+    fi
+
+    if ! git diff --cached --quiet || ! git diff --quiet; then
+        if [ -e "$1" ]; then
+            git commit -m "$CommitMessage" $@
+        else
+            git commit -am "$CommitMessage"
+        fi
+        
+    else
+        echo "No changes to commit"
+    fi
+}

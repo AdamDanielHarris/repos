@@ -1,0 +1,284 @@
+#! /usr/bin/env bash
+
+# Arg parse - Read force and gpa flags from command line
+USAGE="Usage: $0 [-f|--force] [--push <push_args>] [--pull <pull_args>] [-r|--repos <repos>] [--gcm <commit_message>] [-p <PathGlob>] [-s]
+
+Options:
+  -f, --force           Force push to remote repositories
+  --push <push_args>    Arguments to pass to git push command
+  --pull <pull_args>    Arguments to pass to git pull command
+  -r, --repos <repos>   Specify repositories to process (regex pattern)
+  --gcm <message>       Git commit message (default: backup-YYYY-MM-DD)
+  -p <PathGlob>         Specify path glob pattern for git operations
+  -s                    Status only mode - only show repo status without committing
+"
+
+# Set the default values for the flags
+FORCE=""
+PUSH_ARGS=""
+PULL_ARGS=""
+GCM=""
+CLI_REPOS=""
+
+# Parse the flags
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        -f|--force)
+            FORCE="TRUE"
+            shift
+            ;;
+        --push)
+            PUSH_ARGS="$2"
+            shift
+            shift
+            ;;
+        --pull)
+            PULL_ARGS="$2"
+            shift
+            shift
+            ;;
+        -r|--repos)
+            CLI_REPOS="$2"
+            shift
+            shift
+            ;;
+        --gcm)
+            GCM="$2"
+            shift
+            shift
+            ;;
+        -p)
+            PathGlob="$2"
+            shift
+            shift
+            ;;
+        -s)
+            STATUS_ONLY="TRUE"
+            shift
+            ;;
+        *)
+            echo "$USAGE"
+            exit 1
+            ;;
+    esac
+done
+
+# Change to BaseDir of script
+BaseDir=$(dirname $(realpath $0))
+cd $BaseDir
+
+# Import BasicYamlParse function
+source functions
+
+# Ensure Python3 and PyYAML are available
+EnsurePython3WithYaml
+
+# Validate configuration before proceeding
+echo -n "Validating configuration... "
+envsubst < config.yaml > config_sub.yaml
+validation_output=$(python3 yaml_lookup.py config_sub.yaml repos 2>&1)
+if [ $? -ne 0 ]; then
+    echo "✗ FAILED"
+    echo "Configuration validation error: $validation_output"
+    exit 1
+else
+    echo "✓ PASSED"
+fi
+
+# Lookup the repos in the config.yaml file
+repos=($(YamlLookup repos))
+
+# Match the and suset the repos based on the command line arguments
+if [ ! -z "$CLI_REPOS" ]; then
+    repos=($(MatchRepo "$CLI_REPOS" ${repos[@]}))
+fi
+
+[ ! -z "$FORCE" ] && echo "Force: $FORCE"
+[ ! -z "$PUSH_ARGS" ] && echo "Push arguments: $PUSH_ARGS"
+[ ! -z "$PULL_ARGS" ] && echo "Pull arguments: $PULL_ARGS"
+[ ! -z "$GCM" ] && echo "Commit message: $GCM"
+
+# Confirm with user
+read -p "Do you want to continue? (y/n) " -n 1 -r
+
+# If the user does not want to continue, exit
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo
+    exit 1
+fi
+
+config_email=$(YamlLookup config_email)
+config_name=$(YamlLookup config_name)
+config_branch=$(YamlLookup config_branch)
+
+[ -n "$config_email" ] && git config --global user.email "$config_email"
+[ -n "$config_name" ] && git config --global user.name "$config_name"
+[ -n "$config_branch" ] && git config --global init.defaultBranch "$config_branch"
+
+for repo in ${repos[@]}; do
+
+    if [ -z "$STATUS_ONLY" ]; then
+        # Echo separator of as many dashes as the width of the terminal
+        echo -e "\n$(printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -)"
+    fi
+
+    # Change to BaseDir of script as the directory will have changed
+    cd $BaseDir
+    local=($(YamlLookup repos_${repo}_local))
+    remotes=($(YamlLookup repos_${repo}_remotes))
+    
+    # Echo info about directory in blue
+    if [ -z "$STATUS_ONLY" ]; then
+
+        echo
+        ColourText blue "Repo: $local"
+        echo
+        ColourText blue "Github repos: ${remotes[@]}"
+        echo
+    
+    fi
+
+    # If directory does not exist, create it
+    if [ ! -d "$local" ]; then
+        echo "Creating directory $local"
+        mkdir -p $local
+    fi
+    
+    # Check if repos exist for each remote
+    for remote in ${remotes[@]}; do
+
+        # If git directory does not exist, create it with main branch
+        if [ ! -d "$local/.git" ]; then
+
+            # If $local is empty make the directory
+            if [ ! -d "$local" ]; then
+                mkdir -p $local
+            fi
+
+            # If github repo exists and the directory is empty, clone into $local
+            if ! check_github_repo_exists && [ -z "$(ls -A $local)" ]; then
+                echo "Cloning github repo for $(basename $local)"
+                git clone ${remotes[0]} $local
+            elif ! check_github_repo_exists && [ -n "$(ls -A $local)" ]; then # If github repo exists and the directory is not empty, init the git repo
+                # Create the git repo
+                cd $local
+                git init -b main
+                echo "Creating git repo in $local"
+            elif ! check_github_repo_exists && [ -n "$(ls -A $local)" ]; then # If github repo does not exist and the directory is not empty, create the github repo
+                ColourText red "Repo $remote does not exist"
+                echo "Creating github repo for ${repo} at $remote"
+                gh repo create $remote --private
+            else
+                if [ -z "$STATUS_ONLY" ]; then
+                    ColourText red "Repo $remote does not exist"
+                    echo "Creating github repo for ${repo} at $remote"
+                    gh repo create $remote --private
+                fi
+            fi
+
+        # If git directory exists, add the local directory as a safe directory 
+        else
+
+            # If github repos does not exist, create it
+            if ! check_github_repo_exists; then
+                echo "Creating github repo for ${repo}"
+                gh repo create $remote --private
+            fi
+
+            cd $local
+            #git init -b main
+            # git init > /dev/null 2>&1
+            git config --global --add safe.directory $(realpath  $local)
+            git add .
+        fi
+
+
+
+    done
+
+    # Add the local directory as a safe directory
+    git config --global --add safe.directory $(realpath  $local)
+
+    # If git directory exists, commit and push
+    cd $local
+
+    # If status only flag is set, skip the rest of the loop iteration
+    if [ -n "$STATUS_ONLY" ]; then
+
+
+        # If NO_CHANGE_REPOS is not set then set it
+        if [ ! "${NO_CHANGE_REPOS+x}" ]; then
+            NO_CHANGE_REPOS=()
+        fi
+
+        # If $? is 0 then the repo is up to date and echo that
+        git status | grep "nothing to commit" > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            NO_CHANGE_REPOS+=($repo)
+        else
+            ColourText red "${repo}: There are changes to commit\n"
+            ColourText red "$(git status)\n"
+        fi
+
+    fi
+
+    if [ -n "$STATUS_ONLY" ]; then
+        continue
+    fi
+
+    # Get git status
+    # If all files exist in $PathGlob
+    if [ -n "$(ls -A $PathGlob 2> /dev/null)" ]; then
+        git status $PathGlob
+    else
+        git status
+    fi
+
+    # User prompt
+    read -p "Do you want to continue? (y/n) " -n 1 -r
+
+    # Add remote and push
+    for remote in ${remotes[@]}; do
+
+        # Get the remote name from the remote url
+        remote_name=$(echo $remote | awk -F/ '{print $(NF-1)}')
+
+        if ! git remote | grep -q $remote_name
+        then
+            git remote add $remote_name $remote
+        fi
+
+        ColourText blue "\nCommit\n"
+        if [ -z "$FORCE" ]; then
+            
+            if [ -n "$(ls -A $PathGlob 2> /dev/null)" ]; then
+                Git_Commit_Output=$(GitCommit ${PathGlob} 2>&1)
+            else
+                Git_Commit_Output=$(GitCommit 2>&1)
+            fi
+
+            CheckStatus "${Git_Commit_Output}\n"
+
+            ColourText blue "\nPull\n"
+            Git_Pull_Output=$(git pull ${PULL_ARGS} $remote_name main 2>&1)
+            CheckStatus "${Git_Pull_Output}\n"
+
+        fi
+
+        ColourText blue "\nPush\n"
+        if [ ! -z "$FORCE" ]; then
+            Git_Push_Output=$(git push ${PUSH_ARGS} -f $remote_name main 2>&1)
+        else
+            Git_Push_Output=$(git push ${PUSH_ARGS} $remote_name main 2>&1)
+        fi
+
+        CheckStatus "${Git_Push_Output}\n"
+
+    done
+
+done
+
+if [ -n "$STATUS_ONLY" ]; then
+    ColourText green "No changes to commit in:\n$(printf '%s\n' "${NO_CHANGE_REPOS[@]}\n")"
+fi

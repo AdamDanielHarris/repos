@@ -1,0 +1,28 @@
+# Documentation for Repository Configuration
+#
+# This configuration file defines a local repository that syncs with multiple remote repositories.
+
+# Example template (commented out):
+# config:
+#   email: "<YOUR_EMAIL>"  # <----- Replace with your email
+#   name: "<YOUR_GIT_USERNAME>"  # <----- Replace with your Git username
+#   branch: "main"
+
+# repos:
+#   <REPO_NAME>:  # <----- Replace with your repository name
+#     local: $HOME/git/<REPO_NAME>  # <----- Replace with your repository name
+#     remotes:
+#       - https://github.com/<YOURUSERNAME>/<PRIMARY_REPO>.git  # <----- Replace with your username and primary repo
+
+# Actual configuration (uncommented):
+config:
+  email: "test@example.com"
+  name: "TestUser"
+  branch: "main"
+
+repos:
+  test-repo:
+    local: $HOME/git/test-repo
+    remotes:
+      - https://github.com/testuser/test-repo.git
+      - https://github.com/testuser/test-repo-backup.git

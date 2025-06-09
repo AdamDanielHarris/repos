@@ -1,0 +1,11 @@
+config:
+  email: "<YOUR_EMAIL>"
+  name: "<YOUR_GIT_USERNAME>"
+  branch: "main"
+
+repos:
+  <REPO_NAME>:
+    local: $HOME/git/<REPO_NAME>
+    remotes:
+      - https://github.com/<YOURUSERNAME>/<PRIMARY_REPO>.git
+      - https://github.com/<YOURUSERNAME>/<SECONDARY_REPO>.git
