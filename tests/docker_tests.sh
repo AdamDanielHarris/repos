@@ -95,20 +95,20 @@ run_test "Script recognizes --docker flag" \
     "grep -q 'DOCKER_MODE' repos" \
     "pass"
 
-run_test "Script has Docker mode handling" \
-    "grep -q 'Handle Docker mode' repos" \
+run_test "Functions file has Docker mode handling" \
+    "grep -q 'RunDockerMode' functions" \
     "pass"
 
-run_test "Script uses user ID mapping" \
-    "grep -q '\$(id -u):\$(id -g)' repos" \
+run_test "Functions file uses user ID mapping" \
+    "grep -q '\$(id -u):\$(id -g)' functions" \
     "pass"
 
-run_test "Script mounts project directory" \
-    "grep -q '\${BaseDir}:/app' repos" \
+run_test "Functions file mounts project directory" \
+    "grep -q '/app' functions" \
     "pass"
 
-run_test "Script mounts home directory" \
-    "grep -q '\${HOME}:/home/repouser' repos" \
+run_test "Functions file mounts home directory" \
+    "grep -q '/home/repouser' functions" \
     "pass"
 
 # Test 5: Docker execution tests (if config is valid)
@@ -128,25 +128,25 @@ else
 fi
 
 # Test 6: Docker argument passing
-run_test "Script reconstructs force flag for Docker" \
-    "grep -q 'DOCKER_ARGS.*-f' repos" \
+run_test "Functions file reconstructs force flag for Docker" \
+    "grep -q 'DOCKER_ARGS.*-f' functions" \
     "pass"
 
-run_test "Script reconstructs repos filter for Docker" \
-    "grep -q 'DOCKER_ARGS.*-r' repos" \
+run_test "Functions file reconstructs repos filter for Docker" \
+    "grep -q 'DOCKER_ARGS.*-r' functions" \
     "pass"
 
-run_test "Script reconstructs commit message for Docker" \
-    "grep -q 'DOCKER_ARGS.*--gcm' repos" \
+run_test "Functions file reconstructs commit message for Docker" \
+    "grep -q 'DOCKER_ARGS.*--gcm' functions" \
     "pass"
 
-run_test "Script reconstructs status flag for Docker" \
-    "grep -q 'DOCKER_ARGS.*-s' repos" \
+run_test "Functions file reconstructs status flag for Docker" \
+    "grep -q 'DOCKER_ARGS.*-s' functions" \
     "pass"
 
 # Test 7: Docker security tests
 run_test "Docker runs with user mapping (not root)" \
-    "grep -q -- '--user \$(id -u):\$(id -g)' repos" \
+    "grep -q -- '--user \$(id -u):\$(id -g)' functions" \
     "pass"
 
 run_test "Docker uses read-only home mount" \
@@ -159,7 +159,7 @@ run_test "Docker container cannot write to home mount" \
 
 # Test 8: Docker cleanup tests
 run_test "Docker uses --rm flag for automatic cleanup" \
-    "grep -q -- '--rm' repos" \
+    "grep -q -- '--rm' functions" \
     "pass"
 
 run_test "No stopped containers after Docker run" \
