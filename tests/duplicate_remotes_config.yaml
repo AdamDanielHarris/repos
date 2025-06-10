@@ -1,0 +1,24 @@
+# Test configuration with duplicate remote URLs
+config:
+  email: "test@example.com"
+  name: "TestUser"
+  branch: "main"
+
+repos:
+  project1:
+    local: $HOME/git/project1
+    remotes:
+      - https://github.com/testuser/project1.git
+      - https://github.com/testuser/backup.git
+  
+  project2:
+    local: $HOME/git/project2
+    remotes:
+      - https://github.com/testuser/project2.git
+      - https://github.com/testuser/backup.git  # Duplicate URL
+  
+  project3:
+    local: $HOME/git/project3
+    remotes:
+      - https://github.com/testuser/project1.git  # Another duplicate
+      - https://github.com/testuser/project3.git
