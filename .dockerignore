@@ -1,0 +1,83 @@
+# Git repository data (mounted as volumes)
+.git/
+.gitignore
+*.git
+
+# Configuration files (mounted as volumes)  
+config.yaml
+config_sub.yaml
+*config_sub.yaml
+*_sub.yaml
+
+# Documentation (not needed in container)
+README.md
+DOCKER.md
+LICENSE
+docs/
+tests/README.md
+
+# Test results and temporary files
+/tmp/
+*.tmp
+*.temp
+.tmp/
+*_results.txt
+test_pathglob_repo/
+temppython-*/
+
+# Python cache and bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Virtual environments (container has its own Python)
+.venv/
+venv/
+ENV/
+env/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build and package files
+*.tar
+*.zip
+*.gz
+*.bz2
+*.xz
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Keep essential files for Docker functionality:
+# - repos (main script)
+# - functions (function library) 
+# - yaml_lookup.py (YAML parser)
+# - tests/ directory (needed for testing functionality)
+# - Dockerfile (for building)
+
+# Note: Some test artifacts (*_sub.yaml) may persist if created locally before build

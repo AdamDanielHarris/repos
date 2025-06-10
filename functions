@@ -1,8 +1,7 @@
-# Basic YAML Parser
+# BasicYamlParse function
 BasicYamlParse(){
     grep $1 $2 | awk 'BEGIN {RS=""}{gsub(/: +/,"=\"",$0); print $0"\""}'
 }
-
 
 # Get and export Essential Variables using basic YAML Parser
 GetVars(){
@@ -32,6 +31,9 @@ YamlLookup(){
 
     # Get and export all variables using advanced YAML parser
     python3 yaml_lookup.py config_sub.yaml $1 || { echo "Failed to lookup $1 in config.yaml"; exit 1; }
+    
+    # Clean up temporary file
+    rm -f config_sub.yaml
 
 }
 
@@ -161,7 +163,7 @@ GetPython3WithPipPackages(){
             import_name=${pip_packages[$module]:-$module}
 
             if python3 -c "import $import_name" > /dev/null 2>&1; then
-                echo "✓ $module (imports as '$import_name') is installed"
+                echo "✓ $module (imports as '$import_name') is installed here: $temp_dir"
             else
                 echo "✗ $module (imports as '$import_name') is not installed"
                 echo "Trying to install $module"
@@ -194,21 +196,98 @@ EnsurePython3WithYaml(){
 
 GitCommit(){
 
-    # If GCM is set then set CommitMessage to GCM
+    # Check for repository-specific commit message (passed as first argument)
+    local repo_commit_message="$1"
+    shift  # Always remove the first argument (commit message)
+    
+    # If GCM is set, use it (highest priority)
     if [ -n "$GCM" ]; then
         CommitMessage=$GCM
+    # If repository-specific commit message is provided, use it
+    elif [ -n "$repo_commit_message" ] && [ "$repo_commit_message" != "--" ]; then
+        CommitMessage="$repo_commit_message"
     else
         CommitMessage="backup-$(date +%Y-%m-%d)"
     fi
 
-    if ! git diff --cached --quiet || ! git diff --quiet; then
-        if [ -e "$1" ]; then
-            git commit -m "$CommitMessage" $@
+    # Remove "--" separator if it's the first remaining argument
+    if [ "$1" = "--" ]; then
+        shift
+    fi
+
+    # Check if there are changes to commit (staged, unstaged, or untracked files)
+    if ! git diff --cached --quiet || ! git diff --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+        # Check if we have PathGlob arguments (files/patterns to commit)
+        if [ $# -gt 0 ]; then
+            # First, reset the staging area
+            git reset HEAD . >/dev/null 2>&1 || true
+            # Then add only the specified files/patterns
+            git add "$@"
+            # Commit only what's staged
+            git commit -m "$CommitMessage"
         else
-            git commit -am "$CommitMessage"
+            # No PathGlob specified, commit all changes
+            git add .
+            git commit -m "$CommitMessage"
         fi
         
     else
         echo "No changes to commit"
     fi
+}
+
+# Docker runtime functionality
+RunDockerMode(){
+    echo "🐳 Running in Docker mode..."
+    
+    # Check if Docker is available
+    if ! command -v docker &> /dev/null; then
+        echo "❌ Error: Docker is not installed or not in PATH"
+        echo "Please install Docker first: https://docs.docker.com/get-docker/"
+        exit 1
+    fi
+    
+    # Check if Dockerfile exists
+    if [ ! -f "Dockerfile" ]; then
+        echo "❌ Error: Dockerfile not found in current directory"
+        exit 1
+    fi
+    
+    # Build Docker image if it doesn't exist
+    if ! docker image inspect repos-management-tool &> /dev/null; then
+        echo "🔧 Building Docker image (this may take a few minutes)..."
+        docker build -t repos-management-tool .
+        if [ $? -ne 0 ]; then
+            echo "❌ Error: Docker image build failed"
+            exit 1
+        fi
+        echo "✅ Docker image built successfully"
+    fi
+    
+    # Get base directory (should be passed as argument or use global)
+    local base_dir="${1:-$(pwd)}"
+    
+    # Prepare Docker run command with user's UID and GID
+    DOCKER_CMD="docker run --rm -it --user $(id -u):$(id -g)"
+    
+    # Mount volumes - simplified approach using entire home directory
+    DOCKER_CMD="$DOCKER_CMD -v ${base_dir}:/app -v ${HOME}:/home/repouser -w /app"
+
+    
+    # Reconstruct arguments for Docker container
+    DOCKER_ARGS=""
+    [ -n "$FORCE" ] && DOCKER_ARGS="$DOCKER_ARGS -f"
+    [ -n "$PUSH_ARGS" ] && DOCKER_ARGS="$DOCKER_ARGS --push \"$PUSH_ARGS\""
+    [ -n "$PULL_ARGS" ] && DOCKER_ARGS="$DOCKER_ARGS --pull \"$PULL_ARGS\""
+    [ -n "$CLI_REPOS" ] && DOCKER_ARGS="$DOCKER_ARGS -r \"$CLI_REPOS\""
+    [ -n "$GCM" ] && DOCKER_ARGS="$DOCKER_ARGS --gcm \"$GCM\""
+    [ -n "$PathGlob" ] && DOCKER_ARGS="$DOCKER_ARGS -p \"$PathGlob\""
+    [ -n "$STATUS_ONLY" ] && DOCKER_ARGS="$DOCKER_ARGS -s"
+    
+    # Add image and command
+    DOCKER_CMD="$DOCKER_CMD repos-management-tool ./repos $DOCKER_ARGS"
+    
+    echo "🚀 Executing: $DOCKER_CMD"
+    eval $DOCKER_CMD
+    exit $?
 }

@@ -1,59 +1,68 @@
 # Repository Management Tool
 
-A bash-based tool for managing multiple Git repositories with multi-remote synchronization capabilities. This tool allows you to maintain local repositories that can sync with multiple remote repositories simultaneously.
+A bash-based tool for managing multiple Git repositories with multi-remote synchronization capabilities. Designed for GitHub workflows with containerized execution support.
 
-**Note: This tool is currently designed specifically for GitHub repositories and requires the GitHub CLI (`gh`) for full functionality.**
+**Platform Support: Linux/Unix environments only. Tested on various Linux distributions.**
 
 ## Features
 
-- **Multi-Remote Support**: Sync one local repository with multiple remote repositories
-- **YAML Configuration**: Centralized configuration for all repositories and settings
-- **Configuration Validation**: Early validation with descriptive error messages for invalid configurations
-- **Batch Operations**: Perform git operations across multiple repositories at once
-- **Status Monitoring**: Check the status of all repositories without making changes
-- **Flexible Filtering**: Process specific repositories using regex patterns
-- **Automatic Repository Creation**: Create GitHub repositories if they don't exist (GitHub only)
-- **Safe Directory Management**: Automatically configure git safe directories
-- **Colored Output**: Easy-to-read colored terminal output with status indicators
-- **Smart Python Management**: Automatic virtual environment setup and package management
+- **Multi-Remote Support**: Sync local repositories with multiple GitHub remotes
+- **Docker Integration**: Containerized execution with automatic dependency management
+- **YAML Configuration**: Centralized configuration with environment variable support
+- **Configuration Validation**: Early validation with descriptive error messages
+- **Batch Operations**: Process multiple repositories simultaneously
+- **Status Monitoring**: Check repository status without making changes
+- **Flexible Filtering**: Target specific repositories using regex patterns
+- **Automatic Repository Creation**: Create GitHub repositories if they don't exist
+- **Smart Commit Messages**: Repository-specific or global commit message configuration
+- **User ID Mapping**: Automatic permission handling in Docker containers
 
 ## Installation
 
-1. Clone this repository to your local machine
-2. Ensure you have the following dependencies installed:
-   - `bash`
-   - `python3` (PyYAML will be automatically installed if needed)
-   - `git`
-   - `gh` (GitHub CLI) for automatic repository creation - **Required for full functionality**
-   - `envsubst` (usually part of `gettext` package)
+### Option 1: Native Installation
 
-3. Set up GitHub CLI authentication:
+**Prerequisites**: Linux/Unix operating system with the following dependencies:
+- `bash`
+- `python3` (PyYAML will be automatically installed if needed)
+- `git`
+- `gh` (GitHub CLI) - **Required for repository creation**
+- `envsubst` (usually part of `gettext` package)
+
+1. Clone this repository to your local machine
+2. Set up GitHub CLI authentication:
    ```bash
    gh auth login
    ```
 
-4. Make the main script executable:
-   ```bash
-   chmod +x repos
-   ```
+The tool automatically handles Python virtual environments and package installation.
 
-The tool will automatically set up Python virtual environments and install PyYAML when needed.
+### Option 2: Docker Installation
+
+Use Docker for a consistent environment with all dependencies pre-installed:
+
+```bash
+# Run with all dependencies included
+./repos --docker
+```
+
+See [DOCKER.md](DOCKER.md) for complete Docker usage guide.
 
 ## Configuration
 
 ### Setting up config.yaml
 
-The `config.yaml` file contains detailed documentation and examples. To set up your configuration:
+The `config.yaml` file contains detailed documentation and examples. Setup process:
 
 1. Uncomment the template sections at the bottom of `config.yaml`
 2. Replace placeholder values:
    - `<YOUR_EMAIL>` with your email address
    - `<YOUR_GIT_USERNAME>` with your Git username  
-   - `<REPO_NAME>` with your repository names
    - `<YOURUSERNAME>` with your GitHub username
-   - `<PRIMARY_REPO>` and `<SECONDARY_REPO>` with your repository names
+   - Repository names and paths as needed
 
-The tool will validate your configuration and provide specific error messages for any template placeholders that haven't been replaced.
+3. Optionally configure repository-specific commit messages
+
+The tool validates your configuration and provides specific error messages for any unresolved template placeholders.
 
 Example configuration:
 ```yaml
@@ -66,10 +75,35 @@ config:
 repos:
   my-project:
     local: $HOME/git/my-project
+    commit_message: "Development updates"     # Optional: Custom default commit message
     remotes:
       - https://github.com/yourusername/my-project.git          # GitHub URLs required
       - https://github.com/yourusername/my-project-backup.git   # Backup repository
 ```
+
+### Commit Message Configuration
+
+The tool supports multiple levels of commit message configuration:
+
+1. **Repository-specific default** (in config.yaml):
+   ```yaml
+   repos:
+     my-project:
+       local: $HOME/git/my-project
+       commit_message: "Development updates"  # Custom default for this repo
+       remotes:
+         - https://github.com/username/my-project.git
+   ```
+
+2. **Command line override** (highest priority):
+   ```bash
+   ./repos --gcm "Custom commit message for this run"
+   ```
+
+3. **Global default** (when no other message is specified):
+   - Format: `backup-YYYY-MM-DD` (e.g., "backup-2025-06-10")
+
+**Priority order**: Command line (`--gcm`) > Repository default (`commit_message`) > Global default (`backup-YYYY-MM-DD`)
 
 ### Environment Variables
 
@@ -84,8 +118,18 @@ Examples:
 repos:
   my-project:
     local: $HOME/git/my-project          # Expands to /home/username/git/my-project
+    remotes:
+      - https://github.com/username/my-project.git
+  
+  user-app:
     local: /home/$USER/projects/app      # Expands to /home/username/projects/app
+    remotes:
+      - https://github.com/username/user-app.git
+      
+  custom-project:
     local: $PROJECT_ROOT/src             # Uses custom environment variable
+    remotes:
+      - https://github.com/username/custom-project.git
 ```
 
 Environment variables are expanded when the tool runs, allowing for dynamic configuration across different systems.
@@ -110,7 +154,7 @@ Environment variables are expanded when the tool runs, allowing for dynamic conf
 # Force push (use with caution)
 ./repos -f
 
-# Custom commit message
+# Custom commit message (overrides repository defaults)
 ./repos --gcm "Feature: Add new functionality"
 
 # Pass specific arguments to git push/pull
@@ -118,6 +162,26 @@ Environment variables are expanded when the tool runs, allowing for dynamic conf
 
 # Specify path pattern for operations
 ./repos -p "src/*"
+
+# Run in Docker container (all dependencies included)
+./repos --docker
+```
+
+### Docker Commands
+
+```bash
+# Run all operations in Docker
+./repos --docker
+
+# Status check in Docker
+./repos --docker -s
+
+# Docker with custom commit message
+./repos --docker --gcm "Docker deployment update"
+
+# Docker with specific repository pattern
+./repos --docker -r "web.*"
+
 ```
 
 ### Command Line Options
@@ -126,9 +190,10 @@ Environment variables are expanded when the tool runs, allowing for dynamic conf
 - `--push <args>`: Arguments to pass to git push command  
 - `--pull <args>`: Arguments to pass to git pull command
 - `-r, --repos <regex>`: Specify repositories to process (regex pattern)
-- `--gcm <message>`: Git commit message (default: backup-YYYY-MM-DD)
+- `--gcm <message>`: Git commit message (overrides repository defaults and global default)
 - `-p <PathGlob>`: Specify path glob pattern for git operations
 - `-s`: Status only mode - show repo status without committing
+- `--docker`: Run in Docker container with all dependencies pre-installed
 
 ### Status Indicators
 
@@ -173,6 +238,57 @@ vim config.yaml
 ./repos -s -r "pattern.*"
 ```
 
+## Detailed Operations
+
+When you run the `repos` script, it performs the following operations on each configured repository:
+
+### Repository Setup Phase
+1. **Directory Creation**: Creates local repository directory if it doesn't exist
+2. **Repository Initialization**: 
+   - If `.git` doesn't exist and directory is empty: Clones from first remote
+   - If `.git` doesn't exist and directory has files: Initializes git repository with main branch
+3. **GitHub Repository Creation**: Creates remote GitHub repositories if they don't exist (requires `gh` CLI)
+4. **Safe Directory Configuration**: Adds repository to git safe directories
+
+### Synchronization Phase (for each repository)
+1. **File Staging**: Executes `git add .` to stage all changes
+   - **All modified files** are automatically staged
+   - **All new files** are automatically staged  
+   - **Deleted files** are automatically staged
+   
+2. **Status Display**: Shows `git status` output for review
+
+3. **User Confirmation**: Prompts "Do you want to continue? (y/n)" before proceeding
+
+4. **Remote Setup**: Adds remote repositories if not already configured
+
+5. **Commit Operation**: 
+   - Commits all staged changes using the configured commit message
+   - Uses `git commit -am "message"` (commits all tracked file changes)
+   - Message priority: CLI override > repo default > `backup-YYYY-MM-DD`
+
+6. **Pull Operation** (unless force mode):
+   - Executes `git pull <remote> main` to sync with remote changes
+   - Uses any additional pull arguments specified with `--pull`
+
+7. **Push Operation**:
+   - Executes `git push <remote> main` to upload local changes
+   - In force mode: Uses `git push -f <remote> main`
+   - Uses any additional push arguments specified with `--push`
+
+### Status-Only Mode (`-s` flag)
+When using status-only mode, the tool:
+- **Skips all write operations** (no commits, pulls, or pushes)
+- **Shows repository status** for each configured repository
+- **Lists repositories with no changes**
+- **Highlights repositories with uncommitted changes**
+
+### Important Notes
+- **All files are committed**: The tool uses `git add .` and `git commit -am`, meaning ALL changes in the repository are staged and committed
+- **No selective staging**: Individual file selection is not supported - all changes are processed together
+- **Automatic operations**: Once confirmed, all git operations (add, commit, pull, push) happen automatically
+- **Multi-remote support**: Each repository can push to multiple remote repositories sequentially
+
 ## How It Works
 
 1. **Python Environment Setup**: Ensures Python3 and PyYAML are available, creating virtual environments if needed
@@ -186,7 +302,6 @@ vim config.yaml
    - Creates local directory if it doesn't exist
    - Clones from remote if local repo doesn't exist
    - Creates remote repositories if they don't exist (requires GitHub CLI)
-   - Adds remotes and configures safe directories
    - Shows git status and prompts for confirmation
    - Commits, pulls, and pushes changes
 
@@ -215,7 +330,6 @@ This tool is particularly useful for GitHub-based workflows:
 - **Configuration Validation**: Early validation with specific error messages (e.g., "Template placeholder found: ${YOUR_GITHUB_USERNAME}")
 - **User Confirmation**: Prompts before performing operations
 - **Status Checking**: Shows git status before committing
-- **Safe Directory Configuration**: Automatically configures git safe directories
 - **Error Handling**: Colored output with checkmarks (✓/✗) to highlight successful and failed operations
 
 ## Python Dependencies
@@ -282,7 +396,7 @@ See [`tests/README.md`](tests/README.md) for detailed testing documentation.
 
 ## Contributing
 
-Feel free to submit issues and pull requests to improve this tool.
+Feel free to submit issues and pull requests to improve the tool.
 
 ## License
 

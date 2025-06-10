@@ -1,7 +1,7 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
 
 # Arg parse - Read force and gpa flags from command line
-USAGE="Usage: $0 [-f|--force] [--push <push_args>] [--pull <pull_args>] [-r|--repos <repos>] [--gcm <commit_message>] [-p <PathGlob>] [-s]
+USAGE="Usage: $0 [-f|--force] [--push <push_args>] [--pull <pull_args>] [-r|--repos <repos>] [--gcm <commit_message>] [-p <PathGlob>] [-s] [--docker]
 
 Options:
   -f, --force           Force push to remote repositories
@@ -11,7 +11,7 @@ Options:
   --gcm <message>       Git commit message (default: backup-YYYY-MM-DD)
   -p <PathGlob>         Specify path glob pattern for git operations
   -s                    Status only mode - only show repo status without committing
-"
+  --docker              Run in Docker container with all dependencies"
 
 # Set the default values for the flags
 FORCE=""
@@ -19,6 +19,7 @@ PUSH_ARGS=""
 PULL_ARGS=""
 GCM=""
 CLI_REPOS=""
+DOCKER_MODE=""
 
 # Parse the flags
 while [[ $# -gt 0 ]]; do
@@ -57,6 +58,10 @@ while [[ $# -gt 0 ]]; do
             STATUS_ONLY="TRUE"
             shift
             ;;
+        --docker)
+            DOCKER_MODE="TRUE"
+            shift
+            ;;
         *)
             echo "$USAGE"
             exit 1
@@ -67,6 +72,13 @@ done
 # Change to BaseDir of script
 BaseDir=$(dirname $(realpath $0))
 cd $BaseDir
+
+# Handle Docker mode
+if [ -n "$DOCKER_MODE" ]; then
+    # Import functions first to get RunDockerMode
+    source functions
+    RunDockerMode "$BaseDir"
+fi
 
 # Import BasicYamlParse function
 source functions
@@ -85,11 +97,13 @@ if [ $? -ne 0 ]; then
 else
     echo "✓ PASSED"
 fi
+# Clean up temporary file
+rm -f config_sub.yaml
 
 # Lookup the repos in the config.yaml file
 repos=($(YamlLookup repos))
 
-# Match the and suset the repos based on the command line arguments
+# Match the and subset the repos based on the command line arguments
 if [ ! -z "$CLI_REPOS" ]; then
     repos=($(MatchRepo "$CLI_REPOS" ${repos[@]}))
 fi
@@ -101,6 +115,7 @@ fi
 
 # Confirm with user
 read -p "Do you want to continue? (y/n) " -n 1 -r
+echo
 
 # If the user does not want to continue, exit
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -127,6 +142,9 @@ for repo in ${repos[@]}; do
     cd $BaseDir
     local=($(YamlLookup repos_${repo}_local))
     remotes=($(YamlLookup repos_${repo}_remotes))
+    
+    # Look up repository-specific commit message (optional)
+    repo_commit_message=$(YamlLookup repos_${repo}_commit_message 2>/dev/null || echo "")
     
     # Echo info about directory in blue
     if [ -z "$STATUS_ONLY" ]; then
@@ -190,7 +208,7 @@ for repo in ${repos[@]}; do
             #git init -b main
             # git init > /dev/null 2>&1
             git config --global --add safe.directory $(realpath  $local)
-            git add .
+            # Note: Don't add all files here - let GitCommit handle PathGlob filtering
         fi
 
 
@@ -237,6 +255,7 @@ for repo in ${repos[@]}; do
 
     # User prompt
     read -p "Do you want to continue? (y/n) " -n 1 -r
+    echo
 
     # Add remote and push
     for remote in ${remotes[@]}; do
@@ -253,9 +272,9 @@ for repo in ${repos[@]}; do
         if [ -z "$FORCE" ]; then
             
             if [ -n "$(ls -A $PathGlob 2> /dev/null)" ]; then
-                Git_Commit_Output=$(GitCommit ${PathGlob} 2>&1)
+                Git_Commit_Output=$(GitCommit "$repo_commit_message" ${PathGlob} 2>&1)
             else
-                Git_Commit_Output=$(GitCommit 2>&1)
+                Git_Commit_Output=$(GitCommit "$repo_commit_message" -- 2>&1)
             fi
 
             CheckStatus "${Git_Commit_Output}\n"

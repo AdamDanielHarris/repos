@@ -76,6 +76,25 @@ def validate_yaml_structure(yaml_content, file_path_original):
         errors.append("No repositories defined in 'repos' section")
         return False, errors
     
+    # Check for duplicate remote URLs across all repositories
+    all_remotes = []
+    for repo_name, repo_config in repos.items():
+        if isinstance(repo_config, dict) and 'remotes' in repo_config:
+            if isinstance(repo_config['remotes'], list):
+                all_remotes.extend(repo_config['remotes'])
+    
+    # Find duplicates
+    seen_remotes = set()
+    duplicate_remotes = set()
+    for remote in all_remotes:
+        if remote in seen_remotes:
+            duplicate_remotes.add(remote)
+        else:
+            seen_remotes.add(remote)
+    
+    if duplicate_remotes:
+        errors.append(f"Duplicate remote URLs found: {', '.join(duplicate_remotes)}")
+    
     # Check each repository
     for repo_name, repo_config in repos.items():
         if not isinstance(repo_config, dict):

@@ -1,0 +1,14 @@
+# Docker test configuration
+# Simple valid configuration for testing Docker functionality
+
+config:
+  email: "docker-test@example.com"
+  name: "Docker Test User"
+  branch: "main"
+
+repos:
+  docker-test-repo:
+    local: /tmp/docker-test-repo
+    commit_message: "Docker test commit"
+    remotes:
+      - https://github.com/docker-test-user/docker-test-repo.git
