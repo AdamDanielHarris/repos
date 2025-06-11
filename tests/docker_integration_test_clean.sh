@@ -45,7 +45,7 @@ else
 fi
 
 # Test 2: Docker mode activation
-if timeout 10 bash -c 'cd /tmp && cp ${REPO_BASE_DIR}/tests/docker_test_config.yaml config.yaml && echo "n" | ${REPO_BASE_DIR}/repos --docker -s 2>&1 | grep -q "Running in Docker mode"' > /dev/null 2>&1; then
+if timeout 10 bash -c "cd /tmp && cp ${REPO_BASE_DIR}/tests/docker_test_config.yaml config.yaml && echo 'n' | ${REPO_BASE_DIR}/repos --docker -s 2>&1 | grep -q 'Running in Docker mode'" > /dev/null 2>&1; then
     echo -e "✅ Docker mode activation"
     ((TESTS_PASSED++))
 else
@@ -63,7 +63,7 @@ else
 fi
 
 # Test 4: Configuration validation in Docker
-if timeout 30 bash -c 'cd /tmp && cp ${REPO_BASE_DIR}/tests/docker_test_config.yaml config.yaml && docker run --rm --user $(id -u):$(id -g) -v ${REPO_BASE_DIR}:/app -v $HOME:/home/repouser -w /app repos-management-tool bash -c "source functions && EnsurePython3WithYaml && envsubst < config.yaml > /tmp/config_test.yaml && python3 yaml_lookup.py /tmp/config_test.yaml repos" 2>&1 | grep -q "repos"' > /dev/null 2>&1; then
+if timeout 30 bash -c "cd /tmp && cp ${REPO_BASE_DIR}/tests/docker_test_config.yaml config.yaml && docker run --rm --user \$(id -u):\$(id -g) -v ${REPO_BASE_DIR}:/app -v \$HOME:/home/repouser -w /app repos-management-tool bash -c 'source functions && EnsurePython3WithYaml && envsubst < config.yaml > /tmp/config_test.yaml && python3 yaml_lookup.py /tmp/config_test.yaml repos' 2>&1 | grep -q 'repos'" > /dev/null 2>&1; then
     echo -e "✅ Configuration validation in Docker"
     ((TESTS_PASSED++))
 else
@@ -82,7 +82,7 @@ else
 fi
 
 # Test 6: Argument passing
-if timeout 30 bash -c 'cd /tmp && cp ${REPO_BASE_DIR}/tests/docker_test_config.yaml config.yaml && echo "n" | ${REPO_BASE_DIR}/repos --docker -s --gcm "test message" 2>&1 | grep -q "gcm.*test message"' > /dev/null 2>&1; then
+if timeout 30 bash -c "cd /tmp && cp ${REPO_BASE_DIR}/tests/docker_test_config.yaml config.yaml && echo 'n' | ${REPO_BASE_DIR}/repos --docker -s --gcm 'test message' 2>&1 | grep -q 'gcm.*test message'" > /dev/null 2>&1; then
     echo -e "✅ Argument passing to container"
     ((TESTS_PASSED++))
 else
