@@ -1,21 +1,18 @@
 # Documentation for Repository Configuration
 #
-# This configuration file defines a local repository that syncs with multiple remote GitHub repositories.
-# 
-# GITHUB ONLY: This tool is currently designed specifically for GitHub repositories and requires
-# the GitHub CLI (gh) for full functionality including automatic repository creation.
+# This configuration file defines a local repository that syncs with multiple remote repositories.
 # 
 # Configuration Structure:
 #   - REPO_NAME: The name of your local repository folder
 #   - local: Local path where the repository is stored
-#   - remotes: List of GitHub repositories this local repo syncs with
+#   - remotes: List of remote repositories this local repo syncs with
 #
 # Multi-Remote Setup:
-#   This configuration allows one local repository to push/pull from multiple remote GitHub repositories.
+#   This configuration allows one local repository to push/pull from multiple remote repositories.
 #   Common use cases:
-#   - Syncing between a main GitHub repo and a fork
-#   - Maintaining mirrors across different GitHub accounts or organizations
-#   - Deploying to multiple GitHub repositories for different environments
+#   - Syncing between a main repo and a fork
+#   - Maintaining mirrors across different Git hosting services
+#   - Deploying to multiple environments from the same codebase
 #
 # Shell Variable Expansion:
 #   Any Linux/Unix shell variables (e.g., $HOME, $USER, $SHELL) will be expanded 
@@ -35,13 +32,14 @@
 
 # Global Git Configuration
 # config:
-#   email: "<YOUR_EMAIL>"  # <----- Replace with your email - for privacy it is recommended to use the GitHub-provided noreply email
+#   email: "<YOUR_EMAIL>"  # <----- Replace with your email - could use either a private email or a GitHub-provided noreply email
 #   name: "<YOUR_GIT_USERNAME>"  # <----- Replace with your Git username
 #   branch: "main"
 
 # repos:
 #   <REPO_NAME>:  # <----- Replace with your repository name
-#     local: $HOME/<REPO_NAME>  # <----- Replace with the path to your local repository
+#     local: $HOME/git/<REPO_NAME>  # <----- Replace with your repository name
+#     commit_message: "Optional: Custom commit message for this repo"  # <----- Optional: Custom default commit message
 #     remotes:
 #       - https://github.com/<YOURUSERNAME>/<PRIMARY_REPO>.git  # <----- Replace with your username and primary repo
-#       - https://github.com/<YOURUSERNAME>/<SECONDARY_REPO>.git  # <----- Replace with your username and secondary repo
+#       - https://github.com/<YOURUSERNAME>/<SECONDARY_REPO>.git  # <----- Replace with your username and secondary repo if applicable
