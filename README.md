@@ -285,7 +285,7 @@ When using status-only mode, the tool:
 
 ### Important Notes
 - **All files are committed**: The tool uses `git add .` and `git commit -am`, meaning ALL changes in the repository are staged and committed
-- **No selective staging**: Individual file selection is not supported - all changes are processed together
+- **Path pattern support**: Use `-p <PathGlob>` to target specific files or directories, though all matching files are still processed together
 - **Automatic operations**: Once confirmed, all git operations (add, commit, pull, push) happen automatically
 - **Multi-remote support**: Each repository can push to multiple remote repositories sequentially
 
