@@ -8,6 +8,16 @@ cd "$(dirname "$0")/.." || exit 1
 # Base repository directory
 REPO_BASE_DIR="$(pwd)"
 
+# Cleanup function
+cleanup_integration_files() {
+    rm -f /tmp/docker_integration_test_config.yaml /tmp/config.yaml 2>/dev/null || true
+    # Clean up any test repositories that might have been created
+    rm -rf /tmp/test-docker-repo 2>/dev/null || true
+}
+
+# Set up cleanup trap
+trap cleanup_integration_files EXIT
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -88,8 +98,8 @@ else
     ((TESTS_PASSED++))
 fi
 
-# Cleanup
-rm -f /tmp/docker_integration_test_config.yaml /tmp/config.yaml
+# Explicit cleanup before exit
+cleanup_integration_files
 
 # Store results for main summary
 echo "$TESTS_PASSED $TESTS_FAILED $TESTS_INFO" > /tmp/docker_integration_results.txt

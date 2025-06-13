@@ -9,6 +9,16 @@ cd "$(dirname "$0")/.." || exit 1
 source functions
 EnsurePython3WithYaml
 
+# Cleanup function to remove generated test files
+cleanup_test_files() {
+    echo "Cleaning up generated test files..."
+    rm -f tests/*_sub.yaml config_sub.yaml 2>/dev/null || true
+    rm -f /tmp/config_results.txt /tmp/docker_tests_results.txt /tmp/docker_integration_results.txt 2>/dev/null || true
+}
+
+# Set up cleanup trap to run on exit
+trap cleanup_test_files EXIT
+
 echo ""
 echo "Configuration Tests..."
 
@@ -175,6 +185,9 @@ if [ -f "/tmp/config_results.txt" ]; then
     read CONFIG_PASSED CONFIG_FAILED < /tmp/config_results.txt
     rm -f /tmp/config_results.txt
 fi
+
+# Explicit cleanup before exit
+cleanup_test_files
 
 if [ $DOCKER_EXIT_CODE -eq 0 ] && [ ${CONFIG_FAILED:-0} -eq 0 ]; then
     echo "🎉 All available tests PASSED! Repository is ready for use."

@@ -3,6 +3,15 @@
 # Docker implementation tests
 # Tests Docker integration, user ID mapping, volume mounting, and containerized execution
 
+# Cleanup function
+cleanup_docker_files() {
+    # Clean up any temporary files created during docker tests
+    rm -f /tmp/docker_tests_results.txt 2>/dev/null || true
+}
+
+# Set up cleanup trap
+trap cleanup_docker_files EXIT
+
 # Test counters
 TESTS_RUN=0
 TESTS_PASSED=0
