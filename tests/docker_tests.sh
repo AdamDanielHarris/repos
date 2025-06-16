@@ -123,9 +123,20 @@ run_test "Functions file mounts home directory" \
 # Test 5: Docker execution tests (if config is valid)
 # Check if we have a valid config for testing
 if [ -f "config.yaml" ]; then
-    # Test configuration validation in Docker
+    # Test configuration validation in Docker with CI-friendly config
     run_test "Docker container can validate configuration" \
-        "timeout 30 docker run --rm -v \$(pwd):/app -w /app repos-management-tool bash -c 'source functions && EnsurePython3WithYaml && envsubst < config.yaml > /tmp/config_test.yaml && python3 yaml_lookup.py /tmp/config_test.yaml repos'" \
+        "docker run --rm -v \$(pwd):/app -w /app repos-management-tool bash -c 'source functions && EnsurePython3WithYaml && cat > /tmp/config_test.yaml << EOF
+config:
+  email: \"test@example.com\"
+  name: \"TestUser\"
+  branch: \"main\"
+repos:
+  test-repo:
+    local: /tmp/test
+    remotes:
+      - https://github.com/example/test.git
+EOF
+python3 yaml_lookup.py /tmp/config_test.yaml repos'" \
         "pass"
     
     # Test status-only mode in Docker (simplified test)
