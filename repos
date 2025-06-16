@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Arg parse - Read force and gpa flags from command line
-USAGE="Usage: $0 [-f|--force] [--push <push_args>] [--pull <pull_args>] [-r|--repos <repos>] [--gcm <commit_message>] [-p <PathGlob>] [-s] [--docker]
+
+USAGE="Usage: $0 [-f|--force] [--push <push_args>] [--pull <pull_args>] [-r|--repos <repos>] [--gcm <commit_message>] [-p <PathGlob>] [-s] [--docker] [--set-description <desc>] [--ns|--no-sync] [--keep-config-sub]
 
 Options:
   -f, --force           Force push to remote repositories
@@ -11,7 +11,10 @@ Options:
   --gcm <message>       Git commit message (default: backup-YYYY-MM-DD)
   -p <PathGlob>         Specify path glob pattern for git operations
   -s                    Status only mode - only show repo status without committing
-  --docker              Run in Docker container with all dependencies"
+  --docker              Run in Docker container with all dependencies
+  --set-description <desc>  Set the GitHub repository description and exit
+  --ns, --no-sync       Do not sync to remote repositories (local operations only)
+  --keep-config-sub     Keep the config_sub.yaml file after script completion"
 
 # Set the default values for the flags
 FORCE=""
@@ -20,6 +23,8 @@ PULL_ARGS=""
 GCM=""
 CLI_REPOS=""
 DOCKER_MODE=""
+KEEP_CONFIG_SUB=""
+
 
 # Parse the flags
 while [[ $# -gt 0 ]]; do
@@ -58,8 +63,21 @@ while [[ $# -gt 0 ]]; do
             STATUS_ONLY="TRUE"
             shift
             ;;
+        --set-description)
+            REPO_DESCRIPTION="$2"
+            shift
+            shift
+            ;;
+        --ns|--no-sync)
+            NO_SYNC=TRUE
+            shift
+            ;;
         --docker)
             DOCKER_MODE="TRUE"
+            shift
+            ;;
+        --keep-config-sub)
+            KEEP_CONFIG_SUB="TRUE"
             shift
             ;;
         -h|--help)
@@ -73,9 +91,21 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+
 # Change to BaseDir of script
 BaseDir=$(dirname $(realpath $0))
 cd $BaseDir
+
+# Cleanup function for trap
+cleanup_config_sub() {
+    if [ -z "$KEEP_CONFIG_SUB" ] && [ -f "config_sub.yaml" ]; then
+        rm -f config_sub.yaml
+    fi
+}
+
+# Set trap to cleanup on exit
+trap cleanup_config_sub EXIT
+
 
 # Handle Docker mode
 if [ -n "$DOCKER_MODE" ]; then
@@ -101,16 +131,83 @@ if [ $? -ne 0 ]; then
 else
     echo "✓ PASSED"
 fi
-# Clean up temporary file
-rm -f config_sub.yaml
-
+# Keep config_sub.yaml for YamlLookup calls
+# set -x
 # Lookup the repos in the config.yaml file
 repos=($(YamlLookup repos))
+echo "Found repositories: ${repos[@]}"
+# set +x
+# exit
 
 # Match the and subset the repos based on the command line arguments
 if [ ! -z "$CLI_REPOS" ]; then
     repos=($(MatchRepo "$CLI_REPOS" ${repos[@]}))
 fi
+
+# Handle --set-description option and exit
+if [ -n "$REPO_DESCRIPTION" ]; then
+    if ! command -v gh >/dev/null 2>&1; then
+        echo "❌ Error: GitHub CLI (gh) is not installed."
+        exit 1
+    fi
+    
+    if [ -n "$CLI_REPOS" ]; then
+        echo "❌ Error: --set-description cannot be used with -r/--repos flag."
+        echo "   Use the interactive selection instead."
+        exit 1
+    fi
+    
+    # Use existing repos array
+    if [ ${#repos[@]} -eq 0 ]; then
+        echo "❌ Error: No repositories found in config.yaml"
+        exit 1
+    fi
+    
+    # If only one repo, use it directly
+    if [ ${#repos[@]} -eq 1 ]; then
+        selected_repo="${repos[0]}"
+        echo "Using repository: $selected_repo"
+    else
+        # Show selection menu
+        echo "Select a repository to set description for:"
+        for i in "${!repos[@]}"; do
+            echo "$((i+1)). ${repos[i]}"
+        done
+        
+        read -p "Enter repository number (1-${#repos[@]}): " selection
+        
+        # Validate selection
+        if ! [[ "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt ${#repos[@]} ]; then
+            echo "❌ Error: Invalid selection. Please enter a number between 1 and ${#repos[@]}"
+            exit 1
+        fi
+        
+        selected_repo="${repos[$((selection-1))]}"
+        echo "Selected repository: $selected_repo"
+    fi
+    
+    # Get the remote URLs for the selected repo using the correct YamlLookup pattern
+    remotes=($(YamlLookup repos_${selected_repo}_remotes))
+    if [ ${#remotes[@]} -eq 0 ]; then
+        echo "❌ Error: No remotes found for repository $selected_repo"
+        exit 1
+    fi
+    
+    # Use the first remote to determine the GitHub repo
+    first_remote="${remotes[0]}"
+    if [[ "$first_remote" =~ github.com[:/](.*)/(.*)\.git ]]; then
+        GH_OWNER_REPO="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+    else
+        echo "❌ Error: Could not determine GitHub repository from remote: $first_remote"
+        exit 1
+    fi
+    # Properly escape JSON and use jq to construct the payload
+    json_payload=$(jq -n --arg desc "$REPO_DESCRIPTION" '{description: $desc}')
+    gh api repos/"$GH_OWNER_REPO" --method PATCH --input - <<< "$json_payload"
+    echo "✅ GitHub repo description updated for $selected_repo to: \"$REPO_DESCRIPTION\""
+    exit 0
+fi
+
 
 [ ! -z "$FORCE" ] && echo "Force: $FORCE"
 [ ! -z "$PUSH_ARGS" ] && echo "Push arguments: $PUSH_ARGS"
@@ -263,18 +360,18 @@ for repo in ${repos[@]}; do
 
     # Add remote and push
     for remote in ${remotes[@]}; do
-
         # Get the remote name from the remote url
         remote_name=$(echo $remote | awk -F/ '{print $(NF-1)}')
 
         if ! git remote | grep -q $remote_name
         then
-            git remote add $remote_name $remote
+            if do_sync; then
+                git remote add $remote_name $remote
+            fi
         fi
 
         ColourText blue "\nCommit\n"
         if [ -z "$FORCE" ]; then
-            
             if [ -n "$(ls -A $PathGlob 2> /dev/null)" ]; then
                 Git_Commit_Output=$(GitCommit "$repo_commit_message" ${PathGlob} 2>&1)
             else
@@ -283,21 +380,22 @@ for repo in ${repos[@]}; do
 
             CheckStatus "${Git_Commit_Output}\n"
 
-            ColourText blue "\nPull\n"
-            Git_Pull_Output=$(git pull ${PULL_ARGS} $remote_name main 2>&1)
-            CheckStatus "${Git_Pull_Output}\n"
-
+            if do_sync; then
+                ColourText blue "\nPull\n"
+                Git_Pull_Output=$(git pull ${PULL_ARGS} $remote_name main 2>&1)
+                CheckStatus "${Git_Pull_Output}\n"
+            fi
         fi
 
-        ColourText blue "\nPush\n"
-        if [ ! -z "$FORCE" ]; then
-            Git_Push_Output=$(git push ${PUSH_ARGS} -f $remote_name main 2>&1)
-        else
-            Git_Push_Output=$(git push ${PUSH_ARGS} $remote_name main 2>&1)
+        if do_sync; then
+            ColourText blue "\nPush\n"
+            if [ ! -z "$FORCE" ]; then
+                Git_Push_Output=$(git push ${PUSH_ARGS} -f $remote_name main 2>&1)
+            else
+                Git_Push_Output=$(git push ${PUSH_ARGS} $remote_name main 2>&1)
+            fi
+            CheckStatus "${Git_Push_Output}\n"
         fi
-
-        CheckStatus "${Git_Push_Output}\n"
-
     done
 
 done

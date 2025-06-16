@@ -25,6 +25,8 @@ A bash-based tool for managing multiple Git repositories with multi-remote synch
 - **Automatic Repository Creation**: Create GitHub repositories if they don't exist
 - **Smart Commit Messages**: Repository-specific or global commit message configuration
 - **User ID Mapping**: Automatic permission handling in Docker containers
+- **Set GitHub Description**: Quickly update your repository's GitHub description from the command line with `--set-description`.
+- **No Sync Option**: Use `--ns` or `--no-sync` to perform local operations only, without syncing to remotes.
 
 ## Installation
 
@@ -208,6 +210,8 @@ Environment variables are expanded when the tool runs, allowing for dynamic conf
 - `-p <PathGlob>`: Specify path glob pattern for git operations
 - `-s`: Status only mode - show repo status without committing
 - `--docker`: Run in Docker container with all dependencies pre-installed
+- `--set-description <description>`: Set the GitHub repository description and exit.
+- `--ns`, `--no-sync`: Do not sync to remote repositories (local operations only).
 
 ### Status Indicators
 

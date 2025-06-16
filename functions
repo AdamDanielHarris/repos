@@ -26,14 +26,13 @@ check_github_repo_exists(){
 
 YamlLookup(){
 
-    # Create config_sub.yaml with environmental variables substituted
-    envsubst < config.yaml > config_sub.yaml
-
-    # Get and export all variables using advanced YAML parser
-    python3 yaml_lookup.py config_sub.yaml $1 || { echo "Failed to lookup $1 in config.yaml"; exit 1; }
-    
-    # Clean up temporary file
-    rm -f config_sub.yaml
+    # Use existing config_sub.yaml file (should be created by main script)
+    # If it doesn't exist, fall back to config.yaml
+    if [ -f "config_sub.yaml" ]; then
+        python3 yaml_lookup.py config_sub.yaml $1 || { echo "Failed to lookup $1 in config_sub.yaml"; exit 1; }
+    else
+        python3 yaml_lookup.py config.yaml $1 || { echo "Failed to lookup $1 in config.yaml"; exit 1; }
+    fi
 
 }
 
@@ -312,6 +311,7 @@ RunDockerMode(){
     [ -n "$GCM" ] && DOCKER_ARGS="$DOCKER_ARGS --gcm \"$GCM\""
     [ -n "$PathGlob" ] && DOCKER_ARGS="$DOCKER_ARGS -p \"$PathGlob\""
     [ -n "$STATUS_ONLY" ] && DOCKER_ARGS="$DOCKER_ARGS -s"
+    [ -n "$NO_SYNC" ] && DOCKER_ARGS="$DOCKER_ARGS --no-sync"
 
     # Add image and command
     DOCKER_CMD="$DOCKER_CMD repos-management-tool bash -c 'export HOME=/home/repouser && ./repos $DOCKER_ARGS'"
@@ -330,4 +330,13 @@ RunDockerMode(){
     # Clean up the env file
     [ -n "$TMP_ENV_FILE" ] && rm -f "$TMP_ENV_FILE"
     exit $DOCKER_EXIT
+}
+
+# Check if remote sync operations should be performed
+do_sync() {
+    if [ "$NO_SYNC" = "TRUE" ]; then
+        ColourText yellow "Skipping remote sync (--no-sync set)"
+        return 1
+    fi
+    return 0
 }
