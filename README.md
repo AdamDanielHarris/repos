@@ -1,5 +1,12 @@
 # Repository Management Tool
 
+![Platform](https://img.shields.io/badge/platform-linux-blue)
+![Shell](https://img.shields.io/badge/shell-bash-green)
+![Python](https://img.shields.io/badge/python-3.6+-blue)
+![License](https://img.shields.io/github/license/AdamDanielHarris/repos)
+![Docker](https://img.shields.io/badge/docker-supported-blue)
+[![CI](https://github.com/AdamDanielHarris/repos/actions/workflows/ci.yml/badge.svg)](https://github.com/AdamDanielHarris/repos/actions/workflows/ci.yml)
+
 A bash-based tool for managing multiple Git repositories with multi-remote synchronization capabilities. Designed for GitHub workflows with containerized execution support.
 
 **Platform Support: Linux/Unix environments only. Tested on various Linux distributions.**
@@ -41,9 +48,14 @@ The tool automatically handles Python virtual environments and package installat
 Use Docker for a consistent environment with all dependencies pre-installed:
 
 ```bash
+# Build Docker image locally
+docker build -t repos-management-tool .
+
 # Run with all dependencies included
 ./repos --docker
 ```
+
+> **Note**: Pre-built Docker images will be available at `ghcr.io/adamdanielharris/repos` once the first release is published.
 
 See [DOCKER.md](DOCKER.md) for complete Docker usage guide.
 

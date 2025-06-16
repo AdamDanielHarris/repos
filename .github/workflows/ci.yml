@@ -1,0 +1,61 @@
+---
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: "0 6 * * 1"
+
+defaults:
+  run:
+    working-directory: '.'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the codebase
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git bash
+          source functions
+          EnsurePython3WithYaml
+
+      - name: Check script permissions  
+        run: |
+          [ -x ./repos ] || (echo "repos script not executable" && exit 1)
+          [ -x ./tests/run_tests.sh ] || (echo "test script not executable" && exit 1)
+
+      - name: Run test suite
+        run: |
+          ./tests/run_tests.sh
+
+  docker:
+    name: Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the codebase
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t repos-test .
+
+      - name: Test Docker image
+        run: |
+          docker run --rm repos-test bash --version
+          docker run --rm repos-test python3 --version
+          docker run --rm repos-test git --version
+
+      - name: Test repos script in Docker
+        run: |
+          echo "Testing repos help in Docker..."
+          docker run --rm -v "$(pwd)":/app -w /app repos-test ./repos --help
