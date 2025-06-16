@@ -1,6 +1,6 @@
 # Repository Management Tool
 
-Repository management and multi-remote sync tool for Git, with Docker and GitHub CLI integration.
+## Easily commit and sync your Git repositories to GitHub
 
 ![Platform](https://img.shields.io/badge/platform-linux-blue)
 ![Shell](https://img.shields.io/badge/shell-bash-green)
