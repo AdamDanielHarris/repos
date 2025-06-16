@@ -272,10 +272,20 @@ RunDockerMode(){
     # Get base directory (should be passed as argument or use global)
     local base_dir="${1:-$(pwd)}"
 
-    # Get GitHub token if available
-    GITHUB_TOKEN=""
+    # Get GitHub token if available and create a secure env file
+    TMP_ENV_FILE=""
     if command -v gh >/dev/null 2>&1; then
         GITHUB_TOKEN=$(gh auth token 2>/dev/null || true)
+        if [ -n "$GITHUB_TOKEN" ]; then
+            TMP_ENV_FILE=$(mktemp)
+            echo "GITHUB_TOKEN=$GITHUB_TOKEN" > "$TMP_ENV_FILE"
+            chmod 600 "$TMP_ENV_FILE"
+        fi
+    fi
+
+    # Set up trap to securely delete the env file after usage
+    if [ -n "$TMP_ENV_FILE" ]; then
+        trap '[ -f "$TMP_ENV_FILE" ] && rm -f "$TMP_ENV_FILE"' EXIT
     fi
 
     # Prepare Docker run command with user's UID and GID
@@ -285,9 +295,9 @@ RunDockerMode(){
         DOCKER_CMD="docker run --rm --user $(id -u):$(id -g)"
     fi
 
-    # Add GitHub token as environment variable if available
-    if [ -n "$GITHUB_TOKEN" ]; then
-        DOCKER_CMD="$DOCKER_CMD -e GITHUB_TOKEN='$GITHUB_TOKEN'"
+    # Add --env-file if we have a token
+    if [ -n "$TMP_ENV_FILE" ]; then
+        DOCKER_CMD="$DOCKER_CMD --env-file $TMP_ENV_FILE"
     fi
 
     # Mount volumes - project directory and home directory
@@ -306,7 +316,18 @@ RunDockerMode(){
     # Add image and command
     DOCKER_CMD="$DOCKER_CMD repos-management-tool bash -c 'export HOME=/home/repouser && ./repos $DOCKER_ARGS'"
 
-    echo "🚀 Executing: $DOCKER_CMD"
+    # Print a redacted command for logs
+    if [ -n "$TMP_ENV_FILE" ]; then
+        # Show the full command but redact the env-file path
+        REDACTED_CMD=$(echo "$DOCKER_CMD" | sed -E 's/--env-file [^ ]+/--env-file [REDACTED]/')
+        echo "🚀 Executing: $REDACTED_CMD"
+    else
+        echo "🚀 Executing: $DOCKER_CMD"
+    fi
+
     eval $DOCKER_CMD
-    exit $?
+    DOCKER_EXIT=$?
+    # Clean up the env file
+    [ -n "$TMP_ENV_FILE" ] && rm -f "$TMP_ENV_FILE"
+    exit $DOCKER_EXIT
 }
