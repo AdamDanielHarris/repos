@@ -3,7 +3,7 @@
 ![Platform](https://img.shields.io/badge/platform-linux-blue)
 ![Shell](https://img.shields.io/badge/shell-bash-green)
 ![Python](https://img.shields.io/badge/python-3.6+-blue)
-![License](https://img.shields.io/github/license/AdamDanielHarris/repos)
+![License](https://img.shields.io/badge/license-MIT-blue)
 ![Docker](https://img.shields.io/badge/docker-supported-blue)
 [![CI](https://github.com/AdamDanielHarris/repos/actions/workflows/ci.yml/badge.svg)](https://github.com/AdamDanielHarris/repos/actions/workflows/ci.yml)
 
