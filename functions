@@ -239,20 +239,25 @@ GitCommit(){
 # Docker runtime functionality
 RunDockerMode(){
     echo "🐳 Running in Docker mode..."
-    
+
     # Check if Docker is available
     if ! command -v docker &> /dev/null; then
         echo "❌ Error: Docker is not installed or not in PATH"
-        echo "Please install Docker first: https://docs.docker.com/get-docker/"
         exit 1
     fi
-    
+
+    # Check if Docker daemon is running
+    if ! docker info &> /dev/null; then
+        echo "❌ Error: Docker daemon is not running"
+        exit 1
+    fi
+
     # Check if Dockerfile exists
     if [ ! -f "Dockerfile" ]; then
         echo "❌ Error: Dockerfile not found in current directory"
         exit 1
     fi
-    
+
     # Build Docker image if it doesn't exist
     if ! docker image inspect repos-management-tool &> /dev/null; then
         echo "🔧 Building Docker image (this may take a few minutes)..."
@@ -263,17 +268,31 @@ RunDockerMode(){
         fi
         echo "✅ Docker image built successfully"
     fi
-    
+
     # Get base directory (should be passed as argument or use global)
     local base_dir="${1:-$(pwd)}"
-    
+
+    # Get GitHub token if available
+    GITHUB_TOKEN=""
+    if command -v gh >/dev/null 2>&1; then
+        GITHUB_TOKEN=$(gh auth token 2>/dev/null || true)
+    fi
+
     # Prepare Docker run command with user's UID and GID
-    DOCKER_CMD="docker run --rm -it --user $(id -u):$(id -g)"
-    
-    # Mount volumes - simplified approach using entire home directory
+    if [ -t 0 ]; then
+        DOCKER_CMD="docker run --rm -it --user $(id -u):$(id -g)"
+    else
+        DOCKER_CMD="docker run --rm --user $(id -u):$(id -g)"
+    fi
+
+    # Add GitHub token as environment variable if available
+    if [ -n "$GITHUB_TOKEN" ]; then
+        DOCKER_CMD="$DOCKER_CMD -e GITHUB_TOKEN='$GITHUB_TOKEN'"
+    fi
+
+    # Mount volumes - project directory and home directory
     DOCKER_CMD="$DOCKER_CMD -v ${base_dir}:/app -v ${HOME}:/home/repouser -w /app"
 
-    
     # Reconstruct arguments for Docker container
     DOCKER_ARGS=""
     [ -n "$FORCE" ] && DOCKER_ARGS="$DOCKER_ARGS -f"
@@ -283,10 +302,10 @@ RunDockerMode(){
     [ -n "$GCM" ] && DOCKER_ARGS="$DOCKER_ARGS --gcm \"$GCM\""
     [ -n "$PathGlob" ] && DOCKER_ARGS="$DOCKER_ARGS -p \"$PathGlob\""
     [ -n "$STATUS_ONLY" ] && DOCKER_ARGS="$DOCKER_ARGS -s"
-    
+
     # Add image and command
-    DOCKER_CMD="$DOCKER_CMD repos-management-tool ./repos $DOCKER_ARGS"
-    
+    DOCKER_CMD="$DOCKER_CMD repos-management-tool bash -c 'export HOME=/home/repouser && ./repos $DOCKER_ARGS'"
+
     echo "🚀 Executing: $DOCKER_CMD"
     eval $DOCKER_CMD
     exit $?
