@@ -214,6 +214,12 @@ fi
 [ ! -z "$PULL_ARGS" ] && echo "Pull arguments: $PULL_ARGS"
 [ ! -z "$GCM" ] && echo "Commit message: $GCM"
 
+# Show sync status if no-sync is enabled
+if [ "$NO_SYNC" = "TRUE" ]; then
+    ColourText yellow "Skipping remote sync (--no-sync set)"
+    echo
+fi
+
 # Confirm with user
 read -p "Do you want to continue? (y/n) " -n 1 -r
 echo

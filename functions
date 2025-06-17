@@ -335,7 +335,6 @@ RunDockerMode(){
 # Check if remote sync operations should be performed
 do_sync() {
     if [ "$NO_SYNC" = "TRUE" ]; then
-        ColourText yellow "Skipping remote sync (--no-sync set)"
         return 1
     fi
     return 0
