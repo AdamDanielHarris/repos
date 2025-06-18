@@ -146,6 +146,18 @@ GetPython3WithPipPackages(){
     # Find all directories in TMPDIR that start with temppython*
     temppython_dirs=$(find "$TMPDIR" -maxdepth 1 -type d -iname temppython*)
 
+    # Validate existing temp directories - if any have broken pip, remove ALL
+    if [ -n "${temppython_dirs}" ]; then
+        for temp_dir in $temppython_dirs; do
+            if ! (source "$temp_dir/.venv/bin/activate" && "$temp_dir/.venv/bin/pip3" --version) &>/dev/null; then
+                echo "Found broken python temp directory, removing temp directories"
+                rm -rf "$TMPDIR/temppython-*"
+                temppython_dirs=""
+                break
+            fi
+        done
+    fi
+
     # If there are any temppython directories then activate the virtual environment
     if [ -n "${temppython_dirs}" ]; then
 
