@@ -142,6 +142,7 @@ echo "Found repositories: ${repos[@]}"
 # Match the and subset the repos based on the command line arguments
 if [ ! -z "$CLI_REPOS" ]; then
     repos=($(MatchRepo "$CLI_REPOS" ${repos[@]}))
+    echo "Filtered repositories: ${repos[@]}"
 fi
 
 # Handle --set-description option and exit

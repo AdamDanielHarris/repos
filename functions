@@ -150,8 +150,12 @@ GetPython3WithPipPackages(){
     if [ -n "${temppython_dirs}" ]; then
         for temp_dir in $temppython_dirs; do
             if ! (source "$temp_dir/.venv/bin/activate" && "$temp_dir/.venv/bin/pip3" --version) &>/dev/null; then
-                echo "Found broken python temp directory, removing temp directories"
-                rm -rf "$TMPDIR/temppython-*"
+                echo "Found broken python temp directory, removing ALL temp directories"
+                # Remove each directory explicitly to ensure cleanup
+                for dir_to_remove in $temppython_dirs; do
+                    echo "Removing: $dir_to_remove"
+                    rm -rf "$dir_to_remove"
+                done
                 temppython_dirs=""
                 break
             fi
