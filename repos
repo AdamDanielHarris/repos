@@ -235,6 +235,10 @@ config_email=$(YamlLookup config_email)
 config_name=$(YamlLookup config_name)
 config_branch=$(YamlLookup config_branch)
 
+# Attempt to switch to user name if fails then exit
+gh auth switch --user "${config_name}"
+[ $? -ne 0 ] && echo -e "ERROR: Failed to switch to GitHub user $config_name\nCheck details and try again" && exit 1
+
 [ -n "$config_email" ] && git config --global user.email "$config_email"
 [ -n "$config_name" ] && git config --global user.name "$config_name"
 [ -n "$config_branch" ] && git config --global init.defaultBranch "$config_branch"
@@ -250,7 +254,23 @@ for repo in ${repos[@]}; do
     cd $BaseDir
     local=($(YamlLookup repos_${repo}_local))
     remotes=($(YamlLookup repos_${repo}_remotes))
+
+    # Use name and email specified in preference over global values in config file
+    name_local=($(YamlLookup repos_${repo}_name))
+    email_local=($(YamlLookup repos_${repo}_email))
+
+    if [ -n "$name_local" ] && [ -n "$email_local" ]; then
+
+        git config --global user.name "$name_local"
+        git config --global user.email "$email_local"
+
+        # Attempt to switch to user name if fails then exit
+        gh auth switch --user "${name_local}"
+        [ $? -ne 0 ] && echo -e "ERROR: Failed to switch to GitHub user ${name_local}\nCheck details and try again" && exit 1
     
+    fi
+
+
     # Look up repository-specific commit message (optional)
     repo_commit_message=$(YamlLookup repos_${repo}_commit_message 2>/dev/null || echo "")
     
@@ -407,6 +427,10 @@ for repo in ${repos[@]}; do
             CheckStatus "${Git_Push_Output}\n"
         fi
     done
+
+    # Revert back to non-local email and name
+    [ -n "$config_email" ] && git config --global user.email "$config_email"
+    [ -n "$config_name" ] && git config --global user.name "$config_name"
 
 done
 

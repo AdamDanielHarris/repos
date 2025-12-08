@@ -95,6 +95,14 @@ repos:
     remotes:
       - https://github.com/yourusername/my-project.git          # GitHub URLs required
       - https://github.com/yourusername/my-project-backup.git   # Backup repository
+  my-project-2:
+    local: $HOME/git/my-project2
+    commit_message: "New Project Updates"     # Optional: Custom default commit message
+    remotes:
+      - https://github.com/yourusername/my-project.git          # GitHub URLs required
+      - https://github.com/yourusername/my-project-backup.git   # Backup repository
+    name: YourOtherGitUsername                # Optional: local username in place of specified global config
+    email: your.other.email@example.com       # Optional: local email in place of specified global config
 ```
 
 ### Commit Message Configuration
