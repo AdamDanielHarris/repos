@@ -377,6 +377,9 @@ for repo in ${repos[@]}; do
             fi
         fi
 
+        # Get current git branch
+        [ -n "$current_branch"] && current_branch=$(git rev-parse --abbrev-ref HEAD)
+
         ColourText blue "\nCommit\n"
         if [ -z "$FORCE" ]; then
             if [ -n "$(ls -A $PathGlob 2> /dev/null)" ]; then
@@ -389,7 +392,7 @@ for repo in ${repos[@]}; do
 
             if do_sync; then
                 ColourText blue "\nPull\n"
-                Git_Pull_Output=$(git pull ${PULL_ARGS} $remote_name main 2>&1)
+                Git_Pull_Output=$(git pull ${PULL_ARGS} $remote_name ${current_branch} 2>&1)
                 CheckStatus "${Git_Pull_Output}\n"
             fi
         fi
@@ -397,9 +400,9 @@ for repo in ${repos[@]}; do
         if do_sync; then
             ColourText blue "\nPush\n"
             if [ ! -z "$FORCE" ]; then
-                Git_Push_Output=$(git push ${PUSH_ARGS} -f $remote_name main 2>&1)
+                Git_Push_Output=$(git push ${PUSH_ARGS} -f $remote_name ${current_branch} 2>&1)
             else
-                Git_Push_Output=$(git push ${PUSH_ARGS} $remote_name main 2>&1)
+                Git_Push_Output=$(git push ${PUSH_ARGS} $remote_name ${current_branch} 2>&1)
             fi
             CheckStatus "${Git_Push_Output}\n"
         fi
