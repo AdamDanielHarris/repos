@@ -398,7 +398,7 @@ for repo in ${repos[@]}; do
         fi
 
         # Get current git branch
-        [ -n "$current_branch"] && current_branch=$(git rev-parse --abbrev-ref HEAD)
+        [ -n "$current_branch" ] && current_branch=$(git rev-parse --abbrev-ref HEAD)
 
         ColourText blue "\nCommit\n"
         if [ -z "$FORCE" ]; then
